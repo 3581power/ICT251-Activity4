@@ -1,44 +1,55 @@
 const express = require('express');
 const cors = require('cors');
-const db = require('./db');
-const app = express();
+const { initDb, getDb } = require('./db');
 
+const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
-// 1. GET ALL
+// GET ALL
 app.get('/api/sports', (req, res) => {
-    const rows = db.prepare("SELECT * FROM sports ORDER BY id ASC").all();
-    res.json(rows);
+    const db = getDb();
+    const result = db.exec("SELECT * FROM sports ORDER BY id ASC");
+    
+    if (result.length === 0) return res.json([]);
+    
+    // Convert SQL result to JSON
+    const columns = result[0].columns;
+    const values = result[0].values;
+    const players = values.map(row => {
+        let obj = {};
+        columns.forEach((col, index) => obj[col] = row[index]);
+        return obj;
+    });
+    res.json(players);
 });
 
-// 2. GET ONE
-app.get('/api/sports/:id', (req, res) => {
-    const row = db.prepare("SELECT * FROM sports WHERE id = ?").get(req.params.id);
-    if (!row) return res.status(404).json({ error: "Not found" });
-    res.json(row);
-});
-
-// 3. POST
+// POST
 app.post('/api/sports', (req, res) => {
     const { player_name, position, jersey_number } = req.body;
-    const info = db.prepare("INSERT INTO sports (player_name, position, jersey_number) VALUES (?, ?, ?)").run(player_name, position, jersey_number);
-    res.status(201).json({ id: info.lastInsertRowid, player_name, position, jersey_number });
+    const db = getDb();
+    db.run("INSERT INTO sports (player_name, position, jersey_number) VALUES (?, ?, ?)", [player_name, position, jersey_number]);
+    res.status(201).json({ message: "Player added" });
 });
 
-// 4. PUT
+// PUT
 app.put('/api/sports/:id', (req, res) => {
     const { player_name, position, jersey_number } = req.body;
-    db.prepare("UPDATE sports SET player_name = ?, position = ?, jersey_number = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(player_name, position, jersey_number, req.params.id);
-    res.json({ message: "Updated" });
+    const db = getDb();
+    db.run("UPDATE sports SET player_name = ?, position = ?, jersey_number = ? WHERE id = ?", [player_name, position, jersey_number, req.params.id]);
+    res.json({ message: "Player updated" });
 });
 
-// 5. DELETE
+// DELETE
 app.delete('/api/sports/:id', (req, res) => {
-    db.prepare("DELETE FROM sports WHERE id = ?").run(req.params.id);
-    res.json({ message: "Deleted" });
+    const db = getDb();
+    db.run("DELETE FROM sports WHERE id = ?", [req.params.id]);
+    res.json({ message: "Player deleted" });
 });
 
+// Start server only after DB is ready
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+initDb().then(() => {
+    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+});
