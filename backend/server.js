@@ -5,51 +5,39 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
-// Serve the frontend files from the 'public' folder
-app.use(express.static('public')); 
+app.use(express.static('public'));
 
 // 1. GET ALL
 app.get('/api/sports', (req, res) => {
-    db.all("SELECT * FROM sports ORDER BY id ASC", [], (err, rows) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json(rows);
-    });
+    const rows = db.prepare("SELECT * FROM sports ORDER BY id ASC").all();
+    res.json(rows);
 });
 
 // 2. GET ONE
 app.get('/api/sports/:id', (req, res) => {
-    db.get("SELECT * FROM sports WHERE id = ?", [req.params.id], (err, row) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json(row);
-    });
+    const row = db.prepare("SELECT * FROM sports WHERE id = ?").get(req.params.id);
+    if (!row) return res.status(404).json({ error: "Not found" });
+    res.json(row);
 });
 
 // 3. POST
 app.post('/api/sports', (req, res) => {
     const { player_name, position, jersey_number } = req.body;
-    db.run("INSERT INTO sports (player_name, position, jersey_number) VALUES (?, ?, ?)", 
-    [player_name, position, jersey_number], function(err) {
-        if (err) return res.status(500).json({ error: err.message });
-        res.status(201).json({ id: this.lastID, player_name, position, jersey_number });
-    });
+    const info = db.prepare("INSERT INTO sports (player_name, position, jersey_number) VALUES (?, ?, ?)").run(player_name, position, jersey_number);
+    res.status(201).json({ id: info.lastInsertRowid, player_name, position, jersey_number });
 });
 
 // 4. PUT
 app.put('/api/sports/:id', (req, res) => {
     const { player_name, position, jersey_number } = req.body;
-    db.run("UPDATE sports SET player_name = ?, position = ?, jersey_number = ? WHERE id = ?", 
-    [player_name, position, jersey_number, req.params.id], function(err) {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ message: "Updated" });
-    });
+    db.prepare("UPDATE sports SET player_name = ?, position = ?, jersey_number = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?").run(player_name, position, jersey_number, req.params.id);
+    res.json({ message: "Updated" });
 });
 
 // 5. DELETE
 app.delete('/api/sports/:id', (req, res) => {
-    db.run("DELETE FROM sports WHERE id = ?", [req.params.id], function(err) {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({ message: "Deleted" });
-    });
+    db.prepare("DELETE FROM sports WHERE id = ?").run(req.params.id);
+    res.json({ message: "Deleted" });
 });
 
 const PORT = process.env.PORT || 3000;
