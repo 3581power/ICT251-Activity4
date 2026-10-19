@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sports CRUD</title>
+    <style>
+        body { font-family: Arial; max-width: 800px; margin: 20px auto; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+        th { background: #eee; }
+        form { margin-bottom: 20px; padding: 10px; background: #f9f9f9; border: 1px solid #ddd; }
+        input { padding: 5px; margin-right: 10px; }
+        button { padding: 6px 12px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h2>Sports Team Roster</h2>
+    
+    <form id="playerForm">
+        <input type="hidden" id="playerId">
+        <input type="text" id="name" placeholder="Player Name" required>
+        <input type="text" id="position" placeholder="Position" required>
+        <input type="number" id="jersey" placeholder="Jersey #" required>
+        <button type="submit">Save Player</button>
+    </form>
+
+    <table>
+        <thead>
+            <tr><th>ID</th><th>Name</th><th>Position</th><th>Jersey</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+    </table>
+
+    <script>
+        const API_URL = '/api/sports'; 
+        const form = document.getElementById('playerForm');
+        const tableBody = document.getElementById('tableBody');
+
+        async function fetchPlayers() {
+            const res = await fetch(API_URL);
+            const players = await res.json();
+            tableBody.innerHTML = '';
+            players.forEach(p => {
+                tableBody.innerHTML += `
+                    <tr>
+                        <td>${p.id}</td>
+                        <td>${p.player_name}</td>
+                        <td>${p.position}</td>
+                        <td>${p.jersey_number}</td>
+                        <td>
+                            <button onclick="editPlayer(${p.id}, '${p.player_name}', '${p.position}', ${p.jersey_number})">Edit</button>
+                            <button onclick="deletePlayer(${p.id})">Delete</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const id = document.getElementById('playerId').value;
+            const data = {
+                player_name: document.getElementById('name').value,
+                position: document.getElementById('position').value,
+                jersey_number: document.getElementById('jersey').value
+            };
+
+            if (id) {
+                await fetch(`${API_URL}/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+            } else {
+                await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+            }
+            form.reset();
+            document.getElementById('playerId').value = '';
+            fetchPlayers();
+        });
+
+        async function deletePlayer(id) {
+            if(confirm('Delete this player?')) {
+                await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+                fetchPlayers();
+            }
+        }
+
+        function editPlayer(id, name, position, jersey) {
+            document.getElementById('playerId').value = id;
+            document.getElementById('name').value = name;
+            document.getElementById('position').value = position;
+            document.getElementById('jersey').value = jersey;
+        }
+
+        fetchPlayers();
+    </script>
+</body>
+</html>
